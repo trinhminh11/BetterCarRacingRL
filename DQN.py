@@ -68,11 +68,9 @@ class DQN(ga.OffPolicyAgent):
                     _state[key] = torch.from_numpy(value).float().to(self.device)
 
                 # Set local model to evaluation mode
-                self.policy.eval()
                 # Get action values from the local model
                 action_value = self.policy.forward(_state)
                 # Set local model back to training mode
-                self.policy.train()
 
                 # Return the action with the highest value
                 return np.argmax(action_value.cpu().data.numpy(), axis=1)

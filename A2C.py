@@ -38,6 +38,7 @@ class A2C(ga.OnPolicyAgent):
 
     @torch.no_grad()
     def predict(self, states: np.ndarray | dict[str, np.ndarray], deterministic = True):
+        self.policy.eval()
         if isinstance(states, dict):
             _state = {}
 
@@ -53,11 +54,11 @@ class A2C(ga.OnPolicyAgent):
         dist = torch.distributions.Categorical(probs)
         actions = dist.sample()
 
-
         return actions.detach().cpu().numpy()
 
     @torch.no_grad()
     def evaluate(self, states: np.ndarray | dict[str, np.ndarray], deterministic = True) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        self.policy.eval()
         if isinstance(states, dict):
             _state = {}
 
@@ -76,6 +77,7 @@ class A2C(ga.OnPolicyAgent):
         return actions.detach().cpu().numpy(), values.detach().cpu().numpy(), log_probs.detach().cpu().numpy()
 
     def evaluate_actions(self, states: Tensor | dict[str, Tensor], action: Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        self.policy.eval()
         logits = self.policy.actor(states)
         values = self.policy.critic(states).squeeze(1)
 
@@ -87,6 +89,7 @@ class A2C(ga.OnPolicyAgent):
         return values, log_probs, entropy
     
     def learn(self, memory: ga.RolloutBuffer):
+        self.policy.train()
         for rollout in memory.get(None):
             values, log_prob, entropy = self.evaluate_actions(rollout.observations, rollout.actions)
 

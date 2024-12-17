@@ -21,7 +21,7 @@ import utils
 import A2C
 
 
-class Actor(nn.Module):
+class Linear_Actor(nn.Module):
     def __init__(self, n_inp, n_actions, features = [256, 256]):
         super().__init__()
 
@@ -38,7 +38,7 @@ class Actor(nn.Module):
     def forward(self, x):
         return self.actor(self.encoded(x))
 
-class Critic(nn.Module):
+class Linear_Critic(nn.Module):
     def __init__(self, n_inp, features = [256, 256]):
         super().__init__()
         layer_sizes = [n_inp] + features
@@ -54,20 +54,164 @@ class Critic(nn.Module):
     def forward(self, x):
         return self.critic(self.encoded(x))
     
-class Policy(nn.Module):
+class Linear_Policy(nn.Module):
     def __init__(self, n_inp, n_actions: int, features: list[int] = [256, 256], optimizer = optim.Adam, actor_lr = 5e-4, critic_lr=5e-4, optimizer_kwargs = None):
         super().__init__()
 
-        self.actor = Actor(n_inp, n_actions, features)
-        self.critic = Critic(n_inp, features)
+        self.actor = Linear_Actor(n_inp, n_actions, features)
+        self.critic = Linear_Critic(n_inp, features)
 
         if optimizer_kwargs is None:
             optimizer_kwargs = {}
 
         self.actor_optimizer = optimizer(self.actor.parameters(), lr=actor_lr, **optimizer_kwargs)
         self.critic_optimizer = optimizer(self.critic.parameters(), lr=critic_lr, **optimizer_kwargs)
-# Transform
 
+class CNN_Actor(nn.Module):
+    def __init__(self, in_channels: int, n_actions: int, filters: list[int] = [16, 32, 64], fc: list[int] = [256]) -> None:
+        super().__init__()
+
+        self.initial = utils.ConvBn(in_channels, filters[0], 8, 4, 2)
+
+        self.conv = nn.Sequential()
+
+        for i in range(len(filters)-1):
+            self.conv.append(utils.ConvBn(filters[i], filters[i+1], pool=True))
+        
+        self.conv.append(nn.AdaptiveMaxPool2d((4, 4)))
+
+        self.conv.append(nn.Flatten())
+
+        self.fcs = nn.Sequential(
+            nn.Linear(4*4*filters[-1], fc[0]),
+            nn.ReLU(),
+            nn.Linear(fc[0], n_actions)
+        )
+
+    def forward(self, state: torch.Tensor) -> torch.Tensor:
+        image_encoded = self.initial(state)
+        image_encoded = self.conv(image_encoded)
+
+        return self.fcs(image_encoded)
+
+class CNN_Critic(nn.Module):
+    def __init__(self, in_channels: int, filters: list[int] = [16, 32, 64], fc: list[int] = [256]) -> None:
+        super().__init__()
+
+        self.initial = utils.ConvBn(in_channels, filters[0], 8, 4, 2)
+
+        self.conv = nn.Sequential()
+
+        for i in range(len(filters)-1):
+            self.conv.append(utils.ConvBn(filters[i], filters[i+1], pool=True))
+        
+        self.conv.append(nn.AdaptiveMaxPool2d((1, 1)))
+
+        self.conv.append(nn.Flatten())
+
+        self.fcs = nn.Sequential(
+            nn.Linear(filters[-1], fc[0]),
+            nn.ReLU(),
+            nn.Linear(fc[0], 1)
+        )
+
+    def forward(self, state: torch.Tensor) -> torch.Tensor:
+        image_encoded = self.initial(state)
+        image_encoded = self.conv(image_encoded)
+
+        return self.fcs(image_encoded)
+
+class CNN_Policy(nn.Module):
+    def __init__(self, in_channels, n_actions, filters, fcs, optimizer = optim.Adam, actor_lr = 5e-5, critic_lr=1e-4, optimizer_kwargs = None):
+        super().__init__()
+
+        self.actor = CNN_Actor(in_channels, n_actions, filters, fcs)
+        self.critic = CNN_Critic(in_channels, filters, fcs)
+
+        if optimizer_kwargs is None:
+            optimizer_kwargs = {}
+
+        self.actor_optimizer = optimizer(self.actor.parameters(), lr=actor_lr, **optimizer_kwargs)
+        self.critic_optimizer = optimizer(self.critic.parameters(), lr=critic_lr, **optimizer_kwargs)
+
+class Combined_Actor(nn.Module):
+    def __init__(self, in_channels: int, n_vector: int, n_actions: int, filters: list[int] = [16, 32, 64], fc: list[int] = [256]) -> None:
+        super().__init__()
+
+        self.initial = utils.ConvBn(in_channels, filters[0], pool=False)
+
+        self.conv = nn.Sequential()
+
+        for i in range(len(filters)-1):
+            self.conv.append(utils.ConvBn(filters[i], filters[i+1], pool=True))
+        
+        self.conv.append(nn.AdaptiveMaxPool2d((1, 1)))
+
+        self.conv.append(nn.Flatten())
+
+        self.fcs = nn.Sequential(
+            nn.Linear(filters[-1] + n_vector, fc[0]),
+            nn.ReLU(),
+            nn.Linear(fc[0], n_actions)
+        )
+
+    def forward(self, state: dict[str, torch.Tensor]) -> torch.Tensor:
+        image = state['image']
+        vector = state['vector']
+
+        image_encoded = self.initial(image)
+        image_encoded = self.conv(image_encoded)
+
+        inp_vector = torch.cat([image_encoded, vector], dim=1)
+
+        return self.fcs(inp_vector)
+
+class Combined_Critic(nn.Module):
+    def __init__(self, in_channels: int, n_vector: int, filters: list[int] = [16, 32, 64], fc: list[int] = [256]) -> None:
+        super().__init__()
+
+        self.initial = utils.ConvBn(in_channels, filters[0], pool=False)
+
+        self.conv = nn.Sequential()
+
+        for i in range(len(filters)-1):
+            self.conv.append(utils.ConvBn(filters[i], filters[i+1], pool=True))
+        
+        self.conv.append(nn.AdaptiveMaxPool2d((1, 1)))
+
+        self.conv.append(nn.Flatten())
+
+        self.fcs = nn.Sequential(
+            nn.Linear(filters[-1] + n_vector, fc[0]),
+            nn.ReLU(),
+            nn.Linear(fc[0], 1)
+        )
+
+    def forward(self, state: dict[str, torch.Tensor]) -> torch.Tensor:
+        image = state['image']
+        vector = state['vector']
+
+        image_encoded = self.initial(image)
+        image_encoded = self.conv(image_encoded)
+
+        inp_vector = torch.cat([image_encoded, vector], dim=1)
+
+        return self.fcs(inp_vector)
+
+class Combined_Policy(nn.Module):
+    def __init__(self, in_channels, n_vector: int, n_actions, filters, fcs, optimizer = optim.Adam, actor_lr = 5e-5, critic_lr=1e-4, optimizer_kwargs = None):
+        super().__init__()
+
+        self.actor = Combined_Actor(in_channels, n_vector, n_actions, filters, fcs)
+        self.critic = Combined_Critic(in_channels, n_vector, filters, fcs)
+
+        if optimizer_kwargs is None:
+            optimizer_kwargs = {}
+
+        self.actor_optimizer = optimizer(self.actor.parameters(), lr=actor_lr, **optimizer_kwargs)
+        self.critic_optimizer = optimizer(self.critic.parameters(), lr=critic_lr, **optimizer_kwargs)
+
+# Transform
 class StateTfm(ga.Transform):
     def __init__(self, net_type = 'linear', n_frames = 4):
         super().__init__()
@@ -193,7 +337,8 @@ def main():
     if net_type == 'linear':
         env = ga.make_vec(env_id, num_envs=n_envs, continuous=False, die_if_grass = die_if_grass, random_direction=False, observation_transform=StateTfm())
         agent = A2C.A2C(
-            policy = Policy(14, 5, [256, 256], actor_lr = 5e-5, critic_lr=1e-4).apply(utils.init_weights('kaiming')),
+            name = "A2C",
+            policy = Linear_Policy(14, 5, [256, 256], actor_lr = 5e-5, critic_lr=1e-4).apply(utils.init_weights('kaiming')),
             env = env,
             gamma=0.99,
             device='auto',
@@ -207,17 +352,10 @@ def main():
         env = ga.make(env_id, observation_transform=StateTfm('cnn', n_frames=4), continuous=False, die_if_grass = die_if_grass, random_direction = False)
         env.add_wrapper(SkipFrame, skip=4)
         agent = A2C.A2C(
-            name = 'CNN_DQN',
+            name = 'CNN_A2C',
             policy = CNN_Policy(4, 5, filters=[16, 32, 64], fcs=[256]).apply(utils.init_weights('kaiming')),
             env = env,
-            action_space = list(range(5)),
             gamma=0.99,
-            eps_start=1.0,
-            eps_decay=0.995,
-            eps_end=0.01,
-            tau=1e-3,
-            batch_size=64,
-            update_every=4,
             device='auto',
             seed=seed
         ).to('cuda')
@@ -228,18 +366,11 @@ def main():
     elif net_type == 'combine':
         env = ga.make(env_id, observation_transform=StateTfm('combine'), continuous=False, die_if_grass = die_if_grass, random_direction = False)
         env.add_wrapper(SkipFrame, skip=4)
-        agent = DQN.DQN(
-            name = 'IMAGE_VEL_DQN',
-            policy = Combine_Policy(4, 7, 5, filters=[16, 32, 64], fcs=[256]).apply(utils.init_weights('kaiming')),
+        agent = A2C.A2C(
+            name = 'COMBINED_A2C',
+            policy = Combined_Policy(4, 7, 5, filters=[16, 32, 64], fcs=[256]).apply(utils.init_weights('kaiming')),
             env = env,
-            action_space = list(range(5)),
             gamma=0.99,
-            eps_start=1.0,
-            eps_decay=0.995,
-            eps_end=0.01,
-            tau=1e-3,
-            batch_size=64,
-            update_every=4,
             device='auto',
             seed=seed
         ).to('cuda')
@@ -247,10 +378,11 @@ def main():
         env = ga.make(env_id, render_mode = 'human', observation_transform=StateTfm('combine', n_frames=4), continuous=False, die_if_grass = True, lap_complete_percent = 1, random_direction = False)
         env.add_wrapper(SkipFrame, skip=4)
         
-
+    
     agent.load(chkpt_dir, 'best')
 
     agent.play(env, stop_if_truncated=True, seed = 720402)
+
 
 if __name__ == "__main__":
     main()
