@@ -25,32 +25,14 @@ Follow these steps to install the project:
 To perform inference, use the following command in the terminal:
 
 ```bash
-python infer_{algorithm}.py --net_type={type_of_network}
+python infer.py --model={algorithm} --net_type={type_of_network} --seed={random_seed} 
 ```
 
 - **`{algorithm}`**: The algorithm to use. Choose from `dqn`, `a2c`, or `ppo`.
 - **`{type_of_network}`**: The type of neural network used. Options are `linear`, `cnn`, or `combine`.
+- **`{random_seed}`**: Random seed. In demo, we use `720402`.
 
-### Training
-To train the agent, use the following command in the terminal:
 
-```bash
-python train_{algorithm}.py --net_type={type_of_network}
-```
-
-- **`{algorithm}`**: The algorithm to train. Choose from `dqn`, `a2c`, or `ppo`.
-- **`{type_of_network}`**: The type of neural network used. Options are `linear`, `cnn`, or `combine`.
-
-#### PPO Training Hyperparameters
-When training the PPO agent, you can adjust the hyperparameters by passing them as arguments in the terminal:
-
-- `--iter`: Number of iterations per episode. Default: `10`.
-- `--coef_crit`: Coefficient of value loss. Default: `0.5`.
-- `--coef_entropy`: Coefficient of entropy loss. Default: `0.1`.
-- `--epsilon`: Clip value in policy loss. Default: `0.2`.
-- `--clip_vf`: Clip value in value loss. Default: `10`.
-- `--gamma`: Discount factor to calculate returns. Default: `0.99`.
-- `--lambda`: GAE lambda. Default: `0.95`.
 
 ### Checkpoints
 Our checkpoints are stored in https://drive.google.com/drive/u/0/folders/13I0mJML9XxceiFH6wCoKmndTez8bsLZG
