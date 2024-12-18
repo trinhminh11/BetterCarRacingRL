@@ -4,6 +4,7 @@
 torch==2.4.1
 torchsummary==1.5.1
 gymnasium==0.29.1
+box2d==2.3.5
 tqdm==4.66.5
 pygame==2.6.1
 matplotlib==3.9.2
