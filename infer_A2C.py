@@ -310,27 +310,11 @@ class SkipFrame(gym.Wrapper):
                 break
         return state, total_reward, terminated, truncated, info
 
-
-def main():
-    import argparse
-    parser = argparse.ArgumentParser(
-                    prog='ProgramName',
-                    description='What the program does',
-                    epilog='Text at the bottom of help'
-    )
-    
-    parser.add_argument('--net_type', type=str, default='linear', help='Type of network to use')
-
-    args = parser.parse_args()
-
-    net_type = args.net_type
-    print(net_type)
+def play(net_type: str, seed: int):
     n_envs = 1
     chkpt_dir = 'checkpoints/BetterCarRacing-v0/A2C'
 
     env_id = "BetterCarRacing-v0"
-
-    seed = 110404
 
     die_if_grass = True
 
@@ -378,11 +362,26 @@ def main():
         env = ga.make(env_id, render_mode = 'human', observation_transform=StateTfm('combine', n_frames=4), continuous=False, die_if_grass = True, lap_complete_percent = 1, random_direction = False)
         env.add_wrapper(SkipFrame, skip=4)
         
-    
     agent.load(chkpt_dir, 'best')
 
-    agent.play(env, stop_if_truncated=True, seed = 720402)
+    agent.play(env, stop_if_truncated=True, seed = seed)
 
+def main():
+    import argparse
+    parser = argparse.ArgumentParser(
+                    prog='ProgramName',
+                    description='What the program does',
+                    epilog='Text at the bottom of help'
+    )
+    
+    parser.add_argument('--net_type', type=str, default='linear', help='Type of network to use')
+    parser.add_argument('--seed', type=int, default=None, help='Seed for random number generator')
+    args = parser.parse_args()
+
+    print(args.net_type)
+    print(args.seed)
+
+    play(args.net_type.lower(), args.seed)
 
 if __name__ == "__main__":
     main()
