@@ -296,7 +296,7 @@ def play(net_type: str, seed: int = None):
             seed=seed
         ).to('cuda')
 
-        env = ga.make(env_id, render_mode = 'human', continuous=False, die_if_grass = die_if_grass, random_direction=False, lap_complete_percent = 1, render_ray=True)
+        env = ga.make(env_id, render_mode = 'human', continuous=False, die_if_grass = die_if_grass, random_direction=False, lap_complete_percent = 1, render_ray=False)
         env.set_observation_transform(StateTfm())
         env.set_action_transform(ActionTfm())
 
@@ -341,7 +341,7 @@ def play(net_type: str, seed: int = None):
             seed=seed
         ).to('cuda')
 
-        env = ga.make(env_id, render_mode = 'human', observation_transform=StateTfm('combine', n_frames=4), continuous=False, die_if_grass = True, lap_complete_percent = 1, random_direction = False, render_ray=True)
+        env = ga.make(env_id, render_mode = 'human', observation_transform=StateTfm('combine', n_frames=4), continuous=False, die_if_grass = True, lap_complete_percent = 1, random_direction = False, render_ray=False)
         env.add_wrapper(SkipFrame, skip=4)
         
 
